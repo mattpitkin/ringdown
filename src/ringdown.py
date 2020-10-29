@@ -1,4 +1,6 @@
 import numpy as np
+from pycbc.types import TimeSeries
+import pycbc.waveform
 
 
 class RingdownTemplateBank:
@@ -212,3 +214,51 @@ class RingdownTemplateBank:
 
     def __len__(self):
         return len(self.bank_freqs)
+
+    def generate_waveforms(self, iota=np.pi / 2.0, amp=1e-23, flow=20.0, deltat=1.0 / 4096):
+        """
+        Generator for waveforms.
+        """
+
+        params = dict(
+            iota=iota,
+            freq=0.0,
+            q=0.0,
+            amp=amp,
+        )
+
+        for freq, q in zip(self.bank_freqs, self.bank_qs):
+            params["q"] = q
+            params["freq"] = freq
+
+            yield pycbc.waveform.get_td_waveform(
+                approximant="ringdown",
+                f_lower=flow,
+                delta_t=deltat,
+                **params
+            )
+
+
+def ringdown_waveform(**kwargs):
+    flow = kwargs["f_lower"] # Required parameter
+    dt = kwargs["delta_t"]   # Required parameter
+    freq = kwargs["freq"]  # frequency of ring-down (Hz)
+    amp = kwargs["amp"]  # amplitude of ring-down
+    q = kwargs["q"]  # quality factor of ring-down
+    cosiota = np.cos(kwargs["iota"])
+
+    t = np.arange(0, 2, dt)
+
+    h0 = amp * np.exp(-np.pi * freq * t / q) * np.cos(2. * np.pi *freq * t)
+
+    hp = (1.0 + cosiota**2) * h0
+    hc = 2 * cosiota * h0 * 1j
+
+    wf = TimeSeries(hp + hc, delta_t=dt, epoch=0)
+    return wf.real(), wf.imag()
+
+
+# add waveform to PyCBC
+pycbc.waveform.add_custom_waveform(
+    'ringdown', ringdown_waveform, 'time', force=True,
+)
