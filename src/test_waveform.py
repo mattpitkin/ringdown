@@ -18,7 +18,7 @@ params = dict(
     q=5,
     freq=1234.0,
     iota=0.5,
-    amp=1e-23,
+    amplitude=1e-23,
 )
 
 # plot waveform

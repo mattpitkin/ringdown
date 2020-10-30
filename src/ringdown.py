@@ -1,6 +1,10 @@
 import numpy as np
 from pycbc.types import TimeSeries
 import pycbc.waveform
+from pycbc.psd import aLIGOZeroDetHighPower, from_txt, from_string
+from pycbc.detector import Detector
+from pycbc.types.frequencyseries import FrequencySeries
+from pycbc.noise import noise_from_psd
 
 
 class RingdownTemplateBank:
@@ -215,7 +219,7 @@ class RingdownTemplateBank:
     def __len__(self):
         return len(self.bank_freqs)
 
-    def generate_waveforms(self, iota=np.pi / 2.0, amp=1e-23, flow=20.0, deltat=1.0 / 4096):
+    def generate_waveforms(self, iota=np.pi / 2.0, amp=1e-23, flow=20.0, deltat=1.0 / 4096, duration=1.0):
         """
         Generator for waveforms.
         """
@@ -235,6 +239,7 @@ class RingdownTemplateBank:
                 approximant="ringdown",
                 f_lower=flow,
                 delta_t=deltat,
+                duration=duration,
                 **params
             )
 
@@ -242,12 +247,13 @@ class RingdownTemplateBank:
 def ringdown_waveform(**kwargs):
     flow = kwargs["f_lower"] # Required parameter
     dt = kwargs["delta_t"]   # Required parameter
+    dur = kwargs.get("duration", 1)
     freq = kwargs["freq"]  # frequency of ring-down (Hz)
-    amp = kwargs["amp"]  # amplitude of ring-down
+    amp = kwargs["amplitude"]  # amplitude of ring-down
     q = kwargs["q"]  # quality factor of ring-down
     cosiota = np.cos(kwargs["iota"])
 
-    t = np.arange(0, 2, dt)
+    t = np.arange(0, dur, dt)
 
     h0 = amp * np.exp(-np.pi * freq * t / q) * np.cos(2. * np.pi *freq * t)
 
@@ -262,3 +268,170 @@ def ringdown_waveform(**kwargs):
 pycbc.waveform.add_custom_waveform(
     'ringdown', ringdown_waveform, 'time', force=True,
 )
+
+
+class InjectRingdown:
+    """
+    Class to inject a ring-down signal into some fake data for a given detector.
+
+    Parameters
+    ----------
+    detector: str
+        Valid name of a gravitational-wave detector, e.g., H1, L1, V1
+    starttime: float
+        GPS start time for the noise data to be generated.
+    duration: float
+        Length in seconds of the noise data being generated.
+    deltat: float
+        Time step for the data being generated.
+    injfreq: float
+        Frequency of the ring-down signal to be injected (Hz).
+    injq: float
+        Quality factor of the ring-down signal to be injected.
+    injlat: float
+        Latitude (in equatorial coordinates) of the signal to be injected
+        (rads).
+    injlong: float
+        Longitude (in equatorial coordinates) of the signal to be injected
+        (rads).
+    injamp: float
+        Initial amplitude of the ring-down signal to be injected.
+    injt0: float
+        Injection offset time from the starttime value (seconds).
+    injiota: float
+        Orientation of the source within respect to the line of sight (rads)
+        (defaults to pi/2, i.e., linearly polarised).
+    injpsi: float
+        Gravitational-wave polarisation angle of the source (rads) (defaults
+        to 0).
+    psd: callable, FrequencySeries, str, float
+        A value setting the PSD from which to generate the noise. PyCBC PSD
+        functions or FrequencySeries objects can be passed, or strings giving
+        files containing PSDs or valid LALSimulation aliases for analytical
+        PSDs can be used, or a single float can be used to have a uniform PSD
+        as a function of frequency.
+    asd: str, float
+        If you have a file containing an ASD rather than a PSD, or want to pass
+        a single ASD value, use this rather than the psd option.
+    flow: float
+        The low frequency cut-off for the data/signal (Hz).
+    """
+
+    def __init__(
+        self,
+        detector,
+        starttime,
+        duration,
+        deltat,
+        injfreq,
+        injq,
+        injlat,
+        injlong,
+        injamp=1e-23,
+        injt0=0,
+        injiota=np.pi / 2,
+        injpsi=0,
+        psd=aLIGOZeroDetHighPower,
+        asd=None,
+        flow=20.0,
+    ):
+        # create detector into which the signal will be injected
+        self.detector = Detector(detector, reference_time=starttime + injt0)
+
+        # set data information for use when creating PSD
+        self.flow = flow
+        self.duration = duration
+        self.deltat = deltat
+        self.nsamples = int(self.duration // self.deltat)
+
+        self.samplerate = 1. / self.deltat
+        self.nyquist = self.samplerate / 2.
+        self.deltaf = self.samplerate / self.nsamples
+
+        if asd is None:
+            self.is_asd_file = False
+            self.psd = psd
+        else:
+            # using file containing ASD rather than PSD
+            self.is_asd_file = True
+            self.psd = asd
+
+        # create the noise time series
+        self.ts = noise_from_psd(self.nsamples, self.deltat, self.psd)
+        self.ts.start_time = starttime
+
+        # inject the signal into the noise
+        self.inject_signal(injfreq, injq, injlat, injlong, injamp, injt0, injiota, injpsi)
+
+    @property
+    def psd(self):
+        return self.__psd
+
+    @psd.setter
+    def psd(self, psd):
+        if callable(psd):
+            self.__psd = psd(self.nsamples, self.deltaf, self.flow)
+        elif isinstance(psd, FrequencySeries):
+            self.__psd = psd
+        elif isinstance(psd, str):
+            # try reading PSD from file
+            try:
+                self.__psd = from_txt(psd, self.nsamples, self.deltaf, self.flow, is_asd_file=self.is_asd_file)
+            except Exception as e1:
+                # try getting PSD from string name
+                try:
+                    self.__psd = from_string(psd, self.nsamples, self.deltaf, self.flow)
+                except Exception as e2:
+                    raise IOError("Could not create PSD: {}\n{}".format(e1, e2))
+        elif isinstance(psd, float):
+            # convert single float into PSD FrequencySeries
+            if self.is_asd_file:
+                self.__psd = FrequencySeries([psd ** 2] * self.nsamples, delta_f=self.deltaf)
+            else:
+                self.__psd = FrequencySeries([psd] * self.nsamples, delta_f=self.deltaf)
+        else:
+            raise TypeError("Could not create PSD from supplied input")
+
+    def inject_signal(
+        self,
+        injfreq,
+        injq,
+        injlat,
+        injlong,
+        injamp=1e-23,
+        injt0=0,
+        injiota=np.pi / 2,
+        injpsi=0,
+    ):
+        # create dictionary of signal parameters that have been injected
+        params = {
+            "freq": injfreq,
+            "q": injq,
+            "latitude": injlat,
+            "longitude": injlong,
+            "amplitude": injamp,
+            "t0": injt0,
+            "iota": injiota,
+            "psi": injpsi,
+        }
+        
+        if not hasattr(self, "inj_params"):
+            self.inj_params = [params]
+        else:
+            # append parameters for additional injections
+            self.inj_params.append(params)
+
+        # generate waveform
+        hp, hc = pycbc.waveform.get_td_waveform(
+            approximant="ringdown",
+            f_lower=self.flow,
+            delta_t=self.deltat,
+            duration=self.duration,
+            **params
+        )
+
+        # get signal as seen in the detector
+        signal = self.detector.project_wave(hp, hc, params["longitude"], params["latitude"], params["psi"])
+
+        # add signal into the noise
+        # TODO: find signal start time and inject into the right time - need to think about offsets.
