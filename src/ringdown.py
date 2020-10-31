@@ -33,7 +33,7 @@ class RingdownTemplateBank:
 
         # set the q range
         self.set_qrange(qrange, taurange)
-        
+
         # set the mismatch
         self.mm = mm
 
@@ -103,13 +103,20 @@ class RingdownTemplateBank:
                 taumax = np.max(taurange)
             except Exception as e:
                 raise TypeError(
-                    "Could not get minimum and maximum values from taurange: {}".format(e)
+                    "Could not get minimum and maximum values from taurange: {}".format(
+                        e
+                    )
                 )
-            
+
             if taumin >= taumax:
                 raise ValueError("tau min is greater than tau max")
 
-            Qs = sorted(np.einsum("i,j->ij", [taumin, taumax], [self.flow, self.fhigh]).flatten() * np.pi)
+            Qs = sorted(
+                np.einsum(
+                    "i,j->ij", [taumin, taumax], [self.flow, self.fhigh]
+                ).flatten()
+                * np.pi
+            )
             self.qrange = [Qs[0], Qs[-1]]
 
     @property
@@ -124,7 +131,7 @@ class RingdownTemplateBank:
             raise ValueError("Mismatch must be between 0 and 1")
 
         self.__mm = mm
-    
+
     def generate_bank(self, usetau=False):
         """
         Generate the template bank.
@@ -191,7 +198,7 @@ class RingdownTemplateBank:
         else:
             qs = q
 
-        return (1./8.) * (3 + 16 * qs**4) / ((qs * (1 + 4 * qs**2)) ** 2)
+        return (1.0 / 8.0) * (3 + 16 * qs ** 4) / ((qs * (1 + 4 * qs ** 2)) ** 2)
 
     @staticmethod
     def gphiphi(q):
@@ -214,22 +221,19 @@ class RingdownTemplateBank:
         else:
             qs = q
 
-        return (1./8.) * (3 + 8 * qs**2)
+        return (1.0 / 8.0) * (3 + 8 * qs ** 2)
 
     def __len__(self):
         return len(self.bank_freqs)
 
-    def generate_waveforms(self, iota=np.pi / 2.0, amp=1e-23, flow=20.0, deltat=1.0 / 4096, duration=1.0):
+    def generate_waveforms(
+        self, iota=np.pi / 2.0, amp=1e-23, flow=20.0, deltat=1.0 / 4096, duration=1.0
+    ):
         """
         Generator for waveforms.
         """
 
-        params = dict(
-            iota=iota,
-            freq=0.0,
-            q=0.0,
-            amp=amp,
-        )
+        params = dict(iota=iota, freq=0.0, q=0.0, amp=amp)
 
         for freq, q in zip(self.bank_freqs, self.bank_qs):
             params["q"] = q
@@ -245,8 +249,8 @@ class RingdownTemplateBank:
 
 
 def ringdown_waveform(**kwargs):
-    flow = kwargs["f_lower"] # Required parameter
-    dt = kwargs["delta_t"]   # Required parameter
+    flow = kwargs["f_lower"]  # Required parameter
+    dt = kwargs["delta_t"]  # Required parameter
     dur = kwargs.get("duration", 1)
     freq = kwargs["freq"]  # frequency of ring-down (Hz)
     amp = kwargs["amplitude"]  # amplitude of ring-down
@@ -255,9 +259,9 @@ def ringdown_waveform(**kwargs):
 
     t = np.arange(0, dur, dt)
 
-    h0 = amp * np.exp(-np.pi * freq * t / q) * np.cos(2. * np.pi *freq * t)
+    h0 = amp * np.exp(-np.pi * freq * t / q) * np.cos(2.0 * np.pi * freq * t)
 
-    hp = (1.0 + cosiota**2) * h0
+    hp = (1.0 + cosiota ** 2) * h0
     hc = 2 * cosiota * h0 * 1j
 
     wf = TimeSeries(hp + hc, delta_t=dt, epoch=0)
@@ -265,9 +269,7 @@ def ringdown_waveform(**kwargs):
 
 
 # add waveform to PyCBC
-pycbc.waveform.add_custom_waveform(
-    'ringdown', ringdown_waveform, 'time', force=True,
-)
+pycbc.waveform.add_custom_waveform("ringdown", ringdown_waveform, "time", force=True)
 
 
 class InjectRingdown:
@@ -297,7 +299,12 @@ class InjectRingdown:
     injamp: float
         Initial amplitude of the ring-down signal to be injected.
     injt0: float
-        Injection offset time from the starttime value (seconds).
+        The signal's start time as an offset from the start time of the
+        data. This must be a positive value. If this is left as the default
+        value of None the signal will be placed so that its geocentric
+        arrival time would be that at the centre of the data (so the signal
+        will have a minor offset due to time difference between the
+        detector and geocentre.)
     injiota: float
         Orientation of the source within respect to the line of sight (rads)
         (defaults to pi/2, i.e., linearly polarised).
@@ -328,7 +335,7 @@ class InjectRingdown:
         injlat,
         injlong,
         injamp=1e-23,
-        injt0=0,
+        injt0=None,
         injiota=np.pi / 2,
         injpsi=0,
         psd=aLIGOZeroDetHighPower,
@@ -336,7 +343,7 @@ class InjectRingdown:
         flow=20.0,
     ):
         # create detector into which the signal will be injected
-        self.detector = Detector(detector, reference_time=starttime + injt0)
+        self.detector = Detector(detector, reference_time=starttime)
 
         # set data information for use when creating PSD
         self.flow = flow
@@ -344,8 +351,8 @@ class InjectRingdown:
         self.deltat = deltat
         self.nsamples = int(self.duration // self.deltat)
 
-        self.samplerate = 1. / self.deltat
-        self.nyquist = self.samplerate / 2.
+        self.samplerate = 1.0 / self.deltat
+        self.nyquist = self.samplerate / 2.0
         self.deltaf = self.samplerate / self.nsamples
 
         if asd is None:
@@ -361,7 +368,9 @@ class InjectRingdown:
         self.ts.start_time = starttime
 
         # inject the signal into the noise
-        self.inject_signal(injfreq, injq, injlat, injlong, injamp, injt0, injiota, injpsi)
+        self.inject_signal(
+            injfreq, injq, injlat, injlong, injamp, injt0, injiota, injpsi
+        )
 
     @property
     def psd(self):
@@ -376,7 +385,13 @@ class InjectRingdown:
         elif isinstance(psd, str):
             # try reading PSD from file
             try:
-                self.__psd = from_txt(psd, self.nsamples, self.deltaf, self.flow, is_asd_file=self.is_asd_file)
+                self.__psd = from_txt(
+                    psd,
+                    self.nsamples,
+                    self.deltaf,
+                    self.flow,
+                    is_asd_file=self.is_asd_file,
+                )
             except Exception as e1:
                 # try getting PSD from string name
                 try:
@@ -386,7 +401,9 @@ class InjectRingdown:
         elif isinstance(psd, float):
             # convert single float into PSD FrequencySeries
             if self.is_asd_file:
-                self.__psd = FrequencySeries([psd ** 2] * self.nsamples, delta_f=self.deltaf)
+                self.__psd = FrequencySeries(
+                    [psd ** 2] * self.nsamples, delta_f=self.deltaf
+                )
             else:
                 self.__psd = FrequencySeries([psd] * self.nsamples, delta_f=self.deltaf)
         else:
@@ -399,10 +416,47 @@ class InjectRingdown:
         injlat,
         injlong,
         injamp=1e-23,
-        injt0=0,
+        injt0=None,
         injiota=np.pi / 2,
         injpsi=0,
     ):
+        """
+        Add a ring-down signal into noise. This method can be used multiple
+        times to add mulitple signals. The pure signal waveform for each signal
+        add is also stored in a `signals` class attribute.
+
+        Parameters
+        ----------
+        injfreq: float
+            The ring-down signal frequency (Hz).
+        injq: float
+            The ring-down signal quality factor.
+        injlat: float
+            The source equatorial latitude (rads).
+        injlong: float
+            The source equatorial longitude (rads).
+        injamp: float
+            The ring-down signal's peak strain amplitude.
+        injt0: float
+            The signal's start time as an offset from the start time of the
+            data. This must be a positive value. If this is left as the default
+            value of None the signal will be placed so that its geocentric
+            arrival time would be that at the centre of the data (so the signal
+            will have a minor offset due to time difference between the
+            detector and geocentre.)
+        injiota: float
+            The inclination of the source with respect to the line-of-sight
+            (rads) (defaults to pi/2, i.e., linearly polarised).
+        injpsi: float
+            The gravitational wave polarisation angle (rads) (defaults to 0). 
+        """
+
+        # if injt0 is None it will be set to half the duration, so the signal
+        # is placed within the middle of the data (with minor adjustments from
+        # signal arrival time compared to the geocentre)
+        if injt0 is None:
+            injt0 = self.duration / 2.0
+
         # create dictionary of signal parameters that have been injected
         params = {
             "freq": injfreq,
@@ -414,9 +468,10 @@ class InjectRingdown:
             "iota": injiota,
             "psi": injpsi,
         }
-        
+
         if not hasattr(self, "inj_params"):
             self.inj_params = [params]
+            self.signals = []
         else:
             # append parameters for additional injections
             self.inj_params.append(params)
@@ -431,7 +486,27 @@ class InjectRingdown:
         )
 
         # get signal as seen in the detector
-        signal = self.detector.project_wave(hp, hc, params["longitude"], params["latitude"], params["psi"])
+        signal = self.detector.project_wave(
+            hp, hc, params["longitude"], params["latitude"], params["psi"]
+        )
 
-        # add signal into the noise
-        # TODO: find signal start time and inject into the right time - need to think about offsets.
+        # set signal time within data
+        signal.start_time += self.ts.start_time + injt0
+
+        # get indices at which to add signal
+        idx0 = int(
+            (signal.get_sample_times().data[0] - self.ts.get_sample_times().data[0])
+            / self.deltat
+        )
+
+        # add signal to the noise
+        if idx0 >= 0:
+            self.ts[idx0:] += signal[: len(self.ts[idx0:])]
+        else:
+            endidx = len(signal) + idx0
+            if endidx > len(self.ts):
+                endidx = len(self.ts)
+            self.ts[:endidx] += signal[abs(idx0) : abs(idx0) + endidx]
+
+        # append pure-signals to list
+        self.signals.append(signal)
