@@ -381,6 +381,9 @@ class InjectRingdown:
         if callable(psd):
             self.__psd = psd(self.nsamples, self.deltaf, self.flow)
         elif isinstance(psd, FrequencySeries):
+            # make sure values below flow are zero
+            kmin = int(self.flow / self.deltaf)
+            psd.data[:kmin] = 0
             self.__psd = psd
         elif isinstance(psd, str):
             # try reading PSD from file
@@ -400,12 +403,12 @@ class InjectRingdown:
                     raise IOError("Could not create PSD: {}\n{}".format(e1, e2))
         elif isinstance(psd, float):
             # convert single float into PSD FrequencySeries
-            if self.is_asd_file:
-                self.__psd = FrequencySeries(
-                    [psd ** 2] * self.nsamples, delta_f=self.deltaf
-                )
-            else:
-                self.__psd = FrequencySeries([psd] * self.nsamples, delta_f=self.deltaf)
+            val = psd ** 2 if self.is_asd_file else psd
+            psds = np.full(self.nsamples, val)
+            
+            kmin = int(self.flow / self.deltaf)
+            psds[:kmin] = 0
+            self.__psd = FrequencySeries(psds, delta_f=self.deltaf)
         else:
             raise TypeError("Could not create PSD from supplied input")
 
