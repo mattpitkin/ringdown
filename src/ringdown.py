@@ -1,5 +1,4 @@
 import numpy as np
-from pycbc.types import TimeSeries
 import pycbc.waveform
 from pycbc.psd import aLIGOZeroDetHighPower, from_txt, from_string
 from pycbc.detector import Detector
@@ -227,7 +226,8 @@ class RingdownTemplateBank:
         return len(self.bank_freqs)
 
     def generate_waveforms(
-        self, iota=np.pi / 2.0, amp=1e-23, flow=20.0, deltat=1.0 / 4096, duration=1.0
+        self, iota=np.pi / 2.0, amp=1e-23, flow=20.0, deltat=1.0 / 4096, duration=1.0,
+        domain="time",
     ):
         """
         Generator for waveforms.
@@ -246,30 +246,6 @@ class RingdownTemplateBank:
                 duration=duration,
                 **params
             )
-
-
-def ringdown_waveform(**kwargs):
-    flow = kwargs["f_lower"]  # Required parameter
-    dt = kwargs["delta_t"]  # Required parameter
-    dur = kwargs.get("duration", 1)
-    freq = kwargs["freq"]  # frequency of ring-down (Hz)
-    amp = kwargs["amplitude"]  # amplitude of ring-down
-    q = kwargs["q"]  # quality factor of ring-down
-    cosiota = np.cos(kwargs["iota"])
-
-    t = np.arange(0, dur, dt)
-
-    h0 = amp * np.exp(-np.pi * freq * t / q) * np.cos(2.0 * np.pi * freq * t)
-
-    hp = (1.0 + cosiota ** 2) * h0
-    hc = 2 * cosiota * h0 * 1j
-
-    wf = TimeSeries(hp + hc, delta_t=dt, epoch=0)
-    return wf.real(), wf.imag()
-
-
-# add waveform to PyCBC
-pycbc.waveform.add_custom_waveform("ringdown", ringdown_waveform, "time", force=True)
 
 
 class InjectRingdown:
@@ -415,9 +391,10 @@ class InjectRingdown:
     def inject_signal(
         self,
         injfreq,
-        injq,
         injlat,
         injlong,
+        injq=None,
+        injtau=None,
         injamp=1e-23,
         injt0=None,
         injiota=np.pi / 2,
@@ -432,12 +409,15 @@ class InjectRingdown:
         ----------
         injfreq: float
             The ring-down signal frequency (Hz).
-        injq: float
-            The ring-down signal quality factor.
         injlat: float
             The source equatorial latitude (rads).
         injlong: float
             The source equatorial longitude (rads).
+        injq: float
+            The ring-down signal quality factor.
+        injtau: float
+            The damping time of the signal (s). Will be used instead of Q if
+            Q is not set.
         injamp: float
             The ring-down signal's peak strain amplitude.
         injt0: float
@@ -460,10 +440,13 @@ class InjectRingdown:
         if injt0 is None:
             injt0 = self.duration / 2.0
 
+        if injtau is None and injq is None:
+            raise ValueError("Either decay time (tau) or quality factor (Q) must be given.") 
+
         # create dictionary of signal parameters that have been injected
         params = {
-            "freq": injfreq,
-            "q": injq,
+            "f_lmn": injfreq,
+            "tau_lmn": injtau if injtau is not None else injq / (np.pi * injfreq),
             "latitude": injlat,
             "longitude": injlong,
             "amplitude": injamp,
@@ -481,8 +464,7 @@ class InjectRingdown:
 
         # generate waveform
         hp, hc = pycbc.waveform.get_td_waveform(
-            approximant="ringdown",
-            f_lower=self.flow,
+            approximant="TdQNMfromFreqTau",
             delta_t=self.deltat,
             duration=self.duration,
             **params
@@ -490,7 +472,7 @@ class InjectRingdown:
 
         # get signal as seen in the detector
         signal = self.detector.project_wave(
-            hp, hc, params["longitude"], params["latitude"], params["psi"]
+            hp, hc, injlong, injlat, params["psi"]
         )
 
         # set signal time within data
