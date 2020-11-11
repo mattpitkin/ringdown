@@ -1,6 +1,6 @@
 # ringdown
 
-Package to create and (fundamental mode) ring-down (exponentially damped sinusoid) gravitational
+Package to create (fundamental mode) ring-down (exponentially damped sinusoid) gravitational
 wave signals and template banks.
 
 ## Installation
