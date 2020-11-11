@@ -1,31 +1,29 @@
 """
-Show how to create a template bank equivalent to that in Fig. 7.5 (p. 78) of
-arXiv:0908.2085.
+Show how to create a time-domain signal.
 """
 
-from ringdown import ringdown_waveform
 from matplotlib import pyplot as pl
-import pycbc.waveform
-
-
-# add waveform to PyCBC
-pycbc.waveform.add_custom_waveform(
-    'ringdown', ringdown_waveform, 'time', force=True,
-)
+from pycbc.waveform import ringdown_td_approximants
 
 
 params = dict(
-    q=5,
-    freq=1234.0,
+    lmns="221",
+    tau_220=0.1,
+    f_220=1234.0,
     iota=0.5,
-    amplitude=1e-23,
+    amp220=1e-23,
+    phi220=0.3,
+    inclination=0.2,
+    polarization=1.1,
+    t_final=2.0,
 )
 
 # plot waveform
-hp, hc = pycbc.waveform.get_td_waveform(approximant="ringdown",
-                                        f_lower=20,
-                                        delta_t=1.0/4096,
-                                        **params)
+hp, hc = ringdown_td_approximants["TdQNMfromFreqTau"](
+    f_lower=20,
+    delta_t=1.0/4096,
+    **params,
+)
 
 fig, ax = pl.subplots(2, 1, figsize=(5, 9))
 ax[0].plot(hp.sample_times, hp)

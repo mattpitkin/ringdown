@@ -35,6 +35,9 @@ class RingdownInjections:
     psis: float, array_like
         A value, or set of values, giving the polarisation angle(s) of the
         ring-down source(s) (rads). Defaults to zero.
+    phis: float, array_like
+        A value, or set of values, giving the initial phase(s) of the ring-down
+        signal(s) (rads). Defaults to zero.
     inclinations: float, array_like
         A value, or set of values, giving the inclination angle(s) of the
         ring-down source(s) (rads). Defaults to pi/2 rads (90 degs).
@@ -75,6 +78,7 @@ class RingdownInjections:
         ras,
         decs,
         psis=0.0,
+        phis=0.0,
         inclinations=np.pi / 2.,
         detector=None,
         starttime=1000000000,
@@ -94,10 +98,11 @@ class RingdownInjections:
             self.ninj,
             dtype=[
                 ("approximant", "S20"),
-                ("f_lmn", "<f8"),
-                ("lmn", "S3"),
-                ("tau_lmn", "<f8"),
+                ("f_220", "<f8"),
+                ("lmns", "S3"),
+                ("tau_220", "<f8"),
                 ("amp220", "<f8"),
+                ("phi220", "<f8"),
                 ("polarization", "<f8"),
                 ("inclination", "<f8"),
                 ("ra", "<f8"),
@@ -106,11 +111,11 @@ class RingdownInjections:
             ]
         )
 
-        pnames = ["f_lmn", "tau", "amp220", "ra", "dec", "inclinations", "polarization", "tc"]
+        pnames = ["f_220", "tau_220", "amp220", "phi220", "ra", "dec", "inclinations", "polarization", "tc"]
 
         for param, pvalue in zip(
             pnames,
-            [freqs, taus, amps, ras, decs, inclinations, psis, tcs],
+            [freqs, taus, amps, phis, ras, decs, inclinations, psis, tcs],
         ):
             if isinstance(pvalue, float):
                 self.__injections[param] = np.full(self.ninj, pvalue)
@@ -124,7 +129,7 @@ class RingdownInjections:
 
         # the PyCBC "TdQNMfromFreqTau" approximant creates time-domain ring-down signals
         self.__injections["approximant"] = np.full(self.ninj, "TdQNMfromFreqTau")
-        self.__injections["lmn"] = np.full(self.ninj, "221")  # use 1 22 mode (the 220 mode)
+        self.__injections["lmns"] = np.full(self.ninj, "221")  # use 1 22 mode (the 220 mode)
 
         # create the injections
         self.load()

@@ -3,7 +3,7 @@ Show how to create a template bank equivalent to that in Fig. 7.5 (p. 78) of
 arXiv:0908.2085.
 """
 
-from ringdown import RingdownTemplateBank
+from templates import RingdownTemplateBank
 from matplotlib import pyplot as pl
 
 
