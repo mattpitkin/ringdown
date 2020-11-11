@@ -10,7 +10,6 @@ params = dict(
     lmns="221",
     tau_220=0.1,
     f_220=1234.0,
-    iota=0.5,
     amp220=1e-23,
     phi220=0.3,
     inclination=0.2,

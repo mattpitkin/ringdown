@@ -111,7 +111,7 @@ class RingdownInjections:
             ]
         )
 
-        pnames = ["f_220", "tau_220", "amp220", "phi220", "ra", "dec", "inclinations", "polarization", "tc"]
+        pnames = ["f_220", "tau_220", "amp220", "phi220", "ra", "dec", "inclination", "polarization", "tc"]
 
         for param, pvalue in zip(
             pnames,
@@ -132,7 +132,7 @@ class RingdownInjections:
         self.__injections["lmns"] = np.full(self.ninj, "221")  # use 1 22 mode (the 220 mode)
 
         # create the injections
-        self.load()
+        self.create_injections()
 
         # create the simulated data if requested
         if detector is not None:
@@ -141,9 +141,9 @@ class RingdownInjections:
             # inject signal(s) into the data
             self.inject()
 
-    def load(self, filename=None):
+    def create_injections(self, filename=None):
         """
-        Load the injection via writing and reading to a HDF5 file. If a
+        Create the injection via writing and reading to a HDF5 file. If a
         filename is given then that will be used to write the file. If it is
         not given then a temporary file will be used that will be deleted once
         the injections are loaded.
@@ -156,7 +156,6 @@ class RingdownInjections:
 
         if filename is None:
             # create temporary file for injection
-            #tmpfile = tempfile.mkstemp(suffix="hdf5")[1]
             tmpfile = tempfile.TemporaryFile(suffix="hdf5")
         else:
             tmpfile = filename
@@ -165,10 +164,7 @@ class RingdownInjections:
         RingdownHDFInjectionSet.write(tmpfile, self.__injections)
 
         # re-read in the injections
-        self.injections = RingdownHDFInjectionSet(tmpfile)
-
-        #if filename is None:
-        #    shutil.rmtree(filename)
+        self.injection_set = RingdownHDFInjectionSet(tmpfile)
 
     def inject(self, data=None, detector=None):
         """
