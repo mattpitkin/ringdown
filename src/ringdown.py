@@ -226,26 +226,41 @@ class RingdownTemplateBank:
         return len(self.bank_freqs)
 
     def generate_waveforms(
-        self, iota=np.pi / 2.0, amp=1e-23, flow=20.0, deltat=1.0 / 4096, duration=1.0,
+        self, iota=np.pi / 2.0, amp=1e-23, psi=0.0, flow=20.0, deltat=1.0 / 4096, duration=1.0,
         domain="time",
     ):
         """
         Generator for waveforms.
         """
 
-        params = dict(iota=iota, freq=0.0, q=0.0, amp=amp)
+        params = dict(
+            lmn="221",  # ring-down mode
+            inclination=iota,
+            amp220=amp,
+            polarizarion=psi,
+            tc=duration / 2,
+        )
 
         for freq, q in zip(self.bank_freqs, self.bank_qs):
-            params["q"] = q
-            params["freq"] = freq
+            params["tau_lmn"] = q / (np.pi * freq)
+            params["f_lmn"] = freq
 
-            yield pycbc.waveform.get_td_waveform(
-                approximant="ringdown",
-                f_lower=flow,
-                delta_t=deltat,
-                duration=duration,
-                **params
-            )
+            if domain == "frequency":
+                # get frequency domain waveform
+                yield pycbc.waveform.get_fd_waveform(
+                    approximant="FdQNMfromFreqTau",
+                    f_lower=flow,
+                    duration=duration,
+                    **params
+                )
+            else:
+                # get time domain waveform
+                yield pycbc.waveform.get_td_waveform(
+                    approximant="TdQNMfromFreqTau",
+                    f_lower=flow,
+                    duration=duration,
+                    **params
+                )
 
 
 class InjectRingdown:
