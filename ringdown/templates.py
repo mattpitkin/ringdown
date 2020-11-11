@@ -1,5 +1,4 @@
 import numpy as np
-import pycbc.waveform
 from pycbc.waveform import ringdown_td_approximants, ringdown_fd_approximants
 
 
@@ -10,10 +9,8 @@ class RingdownTemplateBank:
 
     Parameters
     ----------
-    flow: float
-        Minimum frequency to use (Hz)
-    fhigh: float
-        Maximum frequency to use (Hz)
+    frange: array_like
+        Array containing the minimum and maximum frequency to use (Hz)
     qrange: array_like
         Array containing a minimum and maximum Q values
     taurange: array_like
@@ -23,9 +20,8 @@ class RingdownTemplateBank:
         Metric mismatch to use.
     """
 
-    def __init__(self, flow, fhigh, qrange=None, taurange=None, mm=0.03):
-        self.flow = flow
-        self.fhigh = fhigh
+    def __init__(self, frange, qrange=None, taurange=None, mm=0.03):
+        self.frange = frange
 
         # set the q range
         self.set_qrange(qrange, taurange)
@@ -46,31 +42,24 @@ class RingdownTemplateBank:
             yield freq, q
 
     @property
-    def flow(self):
-        return self.__flow
+    def frange(self):
+        return self.__frange
 
-    @flow.setter
-    def flow(self, flow):
-        if not isinstance(flow, (float, int)):
-            raise TypeError("flow must be a number")
-        elif flow < 0.0:
-            raise ValueError("flow must be positive")
-        self.__flow = flow
-        self.philow = np.log(flow)
+    @frange.setter
+    def frange(self, frange):
+        try:
+            fmin = np.min(frange)
+            fmax = np.max(frange)
+        except Exception as e:
+            raise TypeError(
+                "Could not get minimum and maximum values from frange: {}".format(e)
+            )
+        
+        if fmin >= fmax:
+            raise ValueError("Min frequency is greater than max frequency")
 
-    @property
-    def fhigh(self):
-        return self.__fhigh
-
-    @fhigh.setter
-    def fhigh(self, fhigh):
-        if not isinstance(fhigh, (float, int)):
-            raise TypeError("fhigh must be a number")
-        elif fhigh <= self.flow:
-            raise ValueError("fhigh must greater than flow")
-
-        self.__fhigh = fhigh
-        self.phihigh = np.log(fhigh)
+        self.__frange = [fmin, fmax]
+        self.phirange = np.log(self.frange)
 
     def set_qrange(self, qrange=None, taurange=None):
         """
@@ -109,7 +98,7 @@ class RingdownTemplateBank:
 
             Qs = sorted(
                 np.einsum(
-                    "i,j->ij", [taumin, taumax], [self.flow, self.fhigh]
+                    "i,j->ij", [taumin, taumax], self.frange
                 ).flatten()
                 * np.pi
             )
@@ -156,7 +145,7 @@ class RingdownTemplateBank:
 
         for q in qscol:
             dphi = np.sqrt(2 * self.mm / self.gphiphi(q))
-            phis = np.arange(self.philow, self.phihigh, dphi)
+            phis = np.arange(self.phirange[0], self.phirange[1], dphi)
             curfreqs = np.exp(phis)
             freqs.extend(curfreqs.tolist())
             if not usetau:
@@ -252,7 +241,7 @@ class RingdownTemplateBank:
                 )
             else:
                 # get time domain waveform
-                yield ringdown_tf_approximant["TdQNMfromFreqTau"](
+                yield ringdown_td_approximants["TdQNMfromFreqTau"](
                     f_lower=flow,
                     duration=duration,
                     **params

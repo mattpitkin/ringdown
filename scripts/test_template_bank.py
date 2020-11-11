@@ -7,12 +7,11 @@ from ringdown import RingdownTemplateBank
 from matplotlib import pyplot as pl
 
 
-flow = 50  # low frequency (Hz)
-fhigh = 2000  # high frequency (Hz)
+frange = [50, 2000]  # frequency range (Hz)
 qrange = [2, 20]  # Quality factor ranges
 mm = 0.03  # maximum mismatch
 
-tb = RingdownTemplateBank(flow, fhigh, qrange=qrange, mm=mm)
+tb = RingdownTemplateBank(frange, qrange=qrange, mm=mm)
 
 print("Number of templates is {}".format(len(tb)))
 
