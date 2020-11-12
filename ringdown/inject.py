@@ -186,7 +186,13 @@ class RingdownInjections:
         if detector is not None:
             self.detector = detector
 
+        # a copy of the data before injection
+        self.__noise_only = self.data.copy()
+
         self.injection_set.apply(self.data, detector_name=self.detector)
+
+        # get a version of the data that just contains the injection
+        self.injection_data = self.data.copy() - self.__noise_only
 
     @property
     def psd(self):
