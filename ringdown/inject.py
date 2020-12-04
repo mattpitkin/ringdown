@@ -22,7 +22,7 @@ class RingdownInjections:
         of the ring-down injections (Hz).
     amps: float, array_like
         A value, or set of values, giving the fundamental mode amplitude(s) of
-        the ring-down injections (strain). 
+        the ring-down injections (strain).
     taus: float, array_like
         A value, or set of values, giving the decay time of the fundamental
         mode of the ring-down injections (s).
@@ -79,7 +79,7 @@ class RingdownInjections:
         decs,
         psis=0.0,
         phis=0.0,
-        inclinations=np.pi / 2.,
+        inclinations=np.pi / 2.0,
         detector=None,
         starttime=1000000000,
         duration=1.0,
@@ -108,10 +108,20 @@ class RingdownInjections:
                 ("ra", "<f8"),
                 ("dec", "<f8"),
                 ("tc", "<f8"),
-            ]
+            ],
         )
 
-        pnames = ["f_220", "tau_220", "amp220", "phi220", "ra", "dec", "inclination", "polarization", "tc"]
+        pnames = [
+            "f_220",
+            "tau_220",
+            "amp220",
+            "phi220",
+            "ra",
+            "dec",
+            "inclination",
+            "polarization",
+            "tc",
+        ]
 
         for param, pvalue in zip(
             pnames,
@@ -121,7 +131,9 @@ class RingdownInjections:
                 self.__injections[param] = np.full(self.ninj, pvalue)
             elif isinstance(pvalue, (list, np.ndarray)):
                 if len(pvalue) != self.ninj:
-                    raise ValueError("{} must have the same number of entries as 'tc'".format(param))
+                    raise ValueError(
+                        "{} must have the same number of entries as 'tc'".format(param)
+                    )
 
                 self.__injections[param] = pvalue
             else:
@@ -129,14 +141,18 @@ class RingdownInjections:
 
         # the PyCBC "TdQNMfromFreqTau" approximant creates time-domain ring-down signals
         self.__injections["approximant"] = np.full(self.ninj, "TdQNMfromFreqTau")
-        self.__injections["lmns"] = np.full(self.ninj, "221")  # use 1 22 mode (the 220 mode)
+        self.__injections["lmns"] = np.full(
+            self.ninj, "221"
+        )  # use 1 22 mode (the 220 mode)
 
         # create the injections
         self.create_injections()
 
         # create the simulated data if requested
         if detector is not None:
-            self.create_data(detector, starttime, duration, deltat, psd, asd=asd, flow=flow)
+            self.create_data(
+                detector, starttime, duration, deltat, psd, asd=asd, flow=flow
+            )
 
             # inject signal(s) into the data
             self.inject()
@@ -169,7 +185,7 @@ class RingdownInjections:
     def inject(self, data=None, detector=None):
         """
         Inject the ring-down signals into data.
-        
+
         Parameters
         ----------
         data: TimeSeries
@@ -227,14 +243,16 @@ class RingdownInjections:
             # convert single float into PSD FrequencySeries
             val = psd ** 2 if self.is_asd_file else psd
             psds = np.full(self.nsamples, val)
-            
+
             kmin = int(self.flow / self.deltaf)
             psds[:kmin] = 0
             self.__psd = FrequencySeries(psds, delta_f=self.deltaf)
         else:
             raise TypeError("Could not create PSD from supplied input")
 
-    def create_data(self, detector, starttime, duration, deltat, psd, asd=None, flow=20.0):
+    def create_data(
+        self, detector, starttime, duration, deltat, psd, asd=None, flow=20.0
+    ):
         """
         Create a fake time series of data for a given detector based on a given
         power spectral density.

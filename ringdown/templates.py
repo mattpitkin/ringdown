@@ -212,8 +212,8 @@ class RingdownTemplateBank:
         return len(self.bank_freqs)
 
     def generate_waveforms(
-        self, iota=np.pi / 2.0, amp=1e-23, psi=0.0, phi=0.0, flow=20.0, deltat=1.0 / 4096, duration=1.0,
-        domain="time",
+        self, iota=np.pi / 2.0, amp=1e-23, psi=0.0, phi=0.0, flow=20.0, deltat=None, duration=1.0, deltaf=None,
+        f_final=None, domain="time",
     ):
         """
         Generator for waveforms.
@@ -236,7 +236,7 @@ class RingdownTemplateBank:
                 # get frequency domain waveform
                 yield ringdown_fd_approximants["FdQNMfromFreqTau"](
                     f_lower=flow,
-                    duration=duration,
+                    delta_f=deltaf,
                     **params
                 )
             else:
@@ -244,5 +244,6 @@ class RingdownTemplateBank:
                 yield ringdown_td_approximants["TdQNMfromFreqTau"](
                     f_lower=flow,
                     duration=duration,
+                    delta_t=deltat,
                     **params
                 )
