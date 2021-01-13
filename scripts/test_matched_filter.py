@@ -5,6 +5,7 @@ single template.
 
 import ringdown
 import pycbc.filter
+import numpy as np
 from matplotlib import pyplot as plt
 
 
@@ -40,6 +41,14 @@ injH1 = ringdown.RingdownInjections(
     duration=duration,
     deltat=dt,
 )
+
+# get signal SNR
+stilde_signal = injH1.injection_data.to_frequencyseries()  # pure signal in frequency domain
+psdnonzero = np.where(injH1.psd.data[:len(stilde_signal)] != 0)  # indices for non-zero PSD
+snr = np.sqrt(
+        (4 / duration) * np.sum(np.conj(stilde_signal.data[psdnonzero]) * stilde_signal.data[psdnonzero] / injH1.psd.data[psdnonzero])
+).real
+print("Signal optimal SNR is {0:.1f}".format(snr))
 
 stilde = injH1.data.to_frequencyseries()
 
