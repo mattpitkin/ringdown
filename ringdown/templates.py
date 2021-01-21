@@ -148,10 +148,8 @@ class RingdownTemplateBank:
             phis = np.arange(self.phirange[0], self.phirange[1], dphi)
             curfreqs = np.exp(phis)
             freqs.extend(curfreqs.tolist())
-            if not usetau:
-                qs.extend(np.full(len(phis), q).tolist())
-            else:
-                taus.extend((q / (np.pi * curfreqs)).tolist())
+            qs.extend(np.full(len(phis), q).tolist())
+            taus.extend((q / (np.pi * curfreqs)).tolist())
 
         self.bank_freqs = freqs
         self.bank_taus = taus
