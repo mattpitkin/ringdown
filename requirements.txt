@@ -1,2 +1,2 @@
 lalsuite
-pycbc
+pycbc>=1.16.12
