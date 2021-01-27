@@ -52,6 +52,11 @@ print("Signal optimal SNR is {0:.1f}".format(snr))
 
 stilde = injH1.data.to_frequencyseries()
 
+# try matched filtering on a reversed signal (f you want!)
+# from pycbc.types.timeseries import TimeSeries
+# reverse = TimeSeries(injH1.data.data[::-1], delta_t=injH1.data.delta_t, epoch=injH1.data.start_time, dtype=injH1.data.dtype)
+# stilde = reverse.to_frequencyseries()
+
 frange = [1230, 1240]  # frequency range (Hz)
 taurange = [0.06, 0.07]  # Quality factor ranges
 mm = 0.03  # maximum mismatch
