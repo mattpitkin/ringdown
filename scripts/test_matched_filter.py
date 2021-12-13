@@ -15,7 +15,7 @@ dt = 1.0 / 8192.0  # time step
 
 tc = starttime + 0.5  # start time of the ring-down signal (GPS second)
 freq = 1234.5  # frequency of signal (Hz)
-amp = 5e-21  # amplitude of signal
+amp = 2e-21  # amplitude of signal
 tau = 0.07  # decay time (seconds)
 ra = 0.3  # source right ascension (rads)
 dec = -0.3  # source declination (rads)
@@ -61,6 +61,8 @@ frange = [1230, 1240]  # frequency range (Hz)
 taurange = [0.06, 0.07]  # Quality factor ranges
 mm = 0.03  # maximum mismatch
 
+fig, ax = plt.subplots(2, 1, sharex=True)
+
 tb = ringdown.RingdownTemplateBank(frange, taurange=taurange, mm=mm)
 flow = 20.0
 for i, waveform in enumerate(tb.generate_waveforms(domain="frequency", deltaf=stilde.delta_f)):
@@ -70,11 +72,21 @@ for i, waveform in enumerate(tb.generate_waveforms(domain="frequency", deltaf=st
     snr = pycbc.filter.matched_filter(hp, stilde, psd=injH1.psd,
                                       low_frequency_cutoff=flow)
 
-    plt.plot(snr.sample_times, abs(snr))
-    plt.ylabel('signal-to-noise ratio')
-    plt.xlabel('time (s)')
-    plt.show()
+    ax[0].plot(snr.sample_times - snr.sample_times[0], injH1.data, label="data")
+    ax[0].plot(snr.sample_times - snr.sample_times[0], injH1.injection_data, linestyle="--", lw=0.5, label="signal")
+    ax[0].ticklabel_format(useMathText=True)
+    ax[0].set_ylabel('strain')
+    ax[0].legend(loc="upper right")
+
+    ax[1].plot(snr.sample_times - snr.sample_times[0], abs(snr))
+    ax[1].set_ylabel('signal-to-noise ratio')
+    ax[1].set_xlabel(f'time (s) [{int(snr.sample_times[0]):d}]')
+
+    ax[0].set_xlim([0, snr.sample_times[-1] - snr.sample_times[0]])
 
     if i == 0:
         # just run for one loop
         break
+
+fig.tight_layout()
+fig.savefig("test.png", dpi=200)
